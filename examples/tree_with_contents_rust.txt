@@ -1,0 +1,197 @@
+// File structure
+// - Cargo.toml
+// - src/
+//   - main.rs
+//   - routes.rs
+//   - error.rs
+//   - config.rs
+
+// Cargo.toml
+[package]
+name = "ping-server"
+version = "0.1.0"
+edition = "2024"
+authors = ["Your Name <your.email@example.com>"]
+description = "A simple ping server"
+
+[dependencies]
+axum = "0.7.4"
+tokio = { version = "1.36.0", features = ["full"] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tower-http = { version = "0.5.1", features = ["trace", "cors"] }
+anyhow = "1.0.81"
+clap = { version = "4.5.2", features = ["derive"] }
+config = "0.14.0"
+
+// src/main.rs
+use std::net::SocketAddr;
+use anyhow::Result;
+use clap::Parser;
+use tracing::info;
+
+mod routes;
+mod error;
+mod config;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Config file path
+    #[arg(short, long, default_value = "config.toml")]
+    config: String,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Initialize tracing
+    tracing_subscriber::fmt::init();
+    
+    // Parse command line arguments
+    let args = Args::parse();
+    
+    // Load configuration
+    let config = config::Config::from_file(&args.config)?;
+    
+    // Build application with routes
+    let app = routes::create_router();
+    
+    // Run the server
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
+    info!("Starting server on {}", addr);
+    
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await?;
+    
+    Ok(())
+}
+
+// src/routes.rs
+use axum::{
+    routing::get,
+    Router,
+    Json,
+    extract::State,
+};
+use serde::{Deserialize, Serialize};
+use tracing::info;
+use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[derive(Serialize)]
+struct PingResponse {
+    message: String,
+    timestamp: u64,
+}
+
+#[derive(Deserialize)]
+struct PingRequest {
+    message: Option<String>,
+}
+
+async fn ping_handler(Json(payload): Json<PingRequest>) -> Json<PingResponse> {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let message = payload.message.unwrap_or_else(|| "pong".to_string());
+    
+    info!("Ping received with message: {}", message);
+    
+    Json(PingResponse {
+        message,
+        timestamp,
+    })
+}
+
+async fn health_check() -> &'static str {
+    "OK"
+}
+
+pub fn create_router() -> Router {
+    Router::new()
+        .route("/ping", get(ping_handler).post(ping_handler))
+        .route("/health", get(health_check))
+}
+
+// src/error.rs
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
+use serde_json::json;
+use std::fmt;
+
+#[derive(Debug)]
+pub enum AppError {
+    Internal(String),
+    NotFound(String),
+    BadRequest(String),
+}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
+            AppError::NotFound(msg) => write!(f, "Not found: {}", msg),
+            AppError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
+        }
+    }
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+        };
+
+        let body = Json(json!({
+            "error": error_message,
+        }));
+
+        (status, body).into_response()
+    }
+}
+
+// src/config.rs
+use anyhow::{Result, Context};
+use serde::Deserialize;
+use std::fs;
+use std::path::Path;
+
+#[derive(Debug, Deserialize)]
+pub struct Config {
+    pub port: u16,
+    pub log_level: String,
+}
+
+impl Config {
+    pub fn from_file(path: &str) -> Result<Self> {
+        let config_str = fs::read_to_string(Path::new(path))
+            .with_context(|| format!("Failed to read config file: {}", path))?;
+            
+        let config: Config = toml::from_str(&config_str)
+            .with_context(|| format!("Failed to parse config file: {}", path))?;
+            
+        Ok(config)
+    }
+    
+    pub fn default() -> Self {
+        Self {
+            port: 3000,
+            log_level: "info".to_string(),
+        }
+    }
+}
+
+// Example config.toml file
+// 
+// port = 3000
+// log_level = "info"

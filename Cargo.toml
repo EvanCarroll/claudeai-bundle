@@ -1,0 +1,23 @@
+[package]
+name = "claudeai-bundle"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+thiserror = "2.0"
+anyhow = "1.0"
+
+[lib]
+name = "claudeai_bundle"
+path = "src/lib.rs"
+
+[[bin]]
+name = "claudeai-bundle"
+path = "src/main.rs"
+
+[profile.release]
+strip = true
+opt-level = "s"
+lto = true
+codegen-units = 1

@@ -1,0 +1,14 @@
+# project/
+# ├── src/
+# │   ├── main.rs
+# │   ├── lib.rs
+# │   └── modules/
+# │       ├── module1.rs
+# │       └── module2.rs
+# ├── tests/
+# │   ├── basic.rs
+# │   └── advanced.rs
+# └── Cargo.toml
+
+This is content after the blank line that should be ignored.
+It might include documentation or other information.

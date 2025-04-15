@@ -1,0 +1,21 @@
+// File structure
+// - main.rs
+// - lib.rs
+// - Cargo.toml
+
+// main.rs
+fn main() {
+    println\!("Hello, world\!");
+}
+
+// lib.rs
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+// Cargo.toml
+[package]
+name = "example"
+version = "0.1.0"
+edition = "2021"
+EOL < /dev/null

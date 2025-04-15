@@ -1,0 +1,11 @@
+project/
+├── src/
+│   ├── main.rs
+│   ├── lib.rs
+│   └── modules/
+│       ├── module1.rs
+│       └── module2.rs
+├── tests/
+│   ├── basic.rs
+│   └── advanced.rs
+└── Cargo.toml

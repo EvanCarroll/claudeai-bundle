@@ -1,0 +1,5 @@
+FROM scratch
+
+COPY ./artifact/claudeai-bundle /claudeai-bundle
+
+ENTRYPOINT ["/claudeai-bundle"]
